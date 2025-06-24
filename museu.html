@@ -1,175 +1,330 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Sala Museu Oscar Niemeyer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Museu</title>
 
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      color: white;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 40px;
-      transition: background-color 0.3s ease;
-    }
-
-    .status {
-      font-size: 5em;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-
-    .sala {
-      font-size: 2.5em;
-      margin-bottom: 10px;
-    }
-
-    .info {
-      font-size: 1.5em;
-      margin-top: 10px;
-    }
-
-    .footer {
-      font-size: 1.2em;
-      opacity: 0.8;
-    }
-
-    .ocupada {
-      background-color: #D32F2F; /* vermelho */
-    }
-
-    .livre {
-      background-color: #388E3C; /* verde */
-    }
-  </style>
-  <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
-</head>
-<body id="tela" class="livre">
-  <div>
-    <div class="sala">Sala Museu Oscar Niemeyer</div>
-    <div class="status" id="status">Carregando...</div>
-    <div class="info" id="titulo"></div>
-    <div class="info" id="organizador"></div>
-    <div class="info" id="termina"></div>
-  </div>
-  <div class="footer" id="footer"></div>
-
-  <script>
-    const msalConfig = {
-      auth: {
-        clientId: "6939f217-6865-4a51-a5c2-1ba799665992", // Substitua pelo seu clientId
-        authority: "https://login.microsoftonline.com/20dfd3ff-2298-473e-8035-8f97570c4361", // Substitua pelo seu tenantId
-        redirectUri: "https://yuraharaa.github.io/5/museu.html"
-      }
-    };
-
-    const loginRequest = {
-      scopes: ["Calendars.Read"]
-    };
-
-    const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-    msalInstance.setLogger(new msal.Logger((logLevel, message) => {
-      console.log(`[MSAL ${logLevel}]: ${message}`);
-    }, {
-      level: msal.LogLevel.Verbose,
-      piiLoggingEnabled: false
-    }));
-
-    async function signInAndLoad() {
-      try {
-        const loginResponse = await msalInstance.loginPopup(loginRequest);
-        msalInstance.setActiveAccount(loginResponse.account);
-
-        const accessToken = (
-          await msalInstance.acquireTokenSilent({
-            ...loginRequest,
-            account: loginResponse.account
-          })
-        ).accessToken;
-
-        loadCalendar(accessToken);
-      } catch (err) {
-        console.error("Erro durante login:", err);
-        document.getElementById("status").textContent = "Erro de autenticação";
-      }
-    }
-
-    async function loadCalendar(token) {
-      const salaEmail = "museuoscarniemeyer@fcopel.mail.onmicrosoft.com"; // Substitua pelo e-mail real da sala
-      const now = new Date();
-
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
-
-      const startDateTime = now.toISOString();
-      const endDateTime = endOfDay.toISOString();
-
-      const url = `https://graph.microsoft.com/v1.0/users/${salaEmail}/calendarView?startDateTime=${startDateTime}&endDateTime=${endDateTime}&$orderby=start/dateTime`;
-
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Prefer: 'outlook.timezone="America/Sao_Paulo"'
+    <style>
+        /* Reset básico para todos os elementos */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
-      });
 
-      if (!res.ok) {
-        console.error("Erro na requisição do Graph:", await res.text());
-        document.getElementById("status").textContent = "Erro ao carregar";
-        document.getElementById("tela").className = "ocupada";
-        return;
-      }
+        /* Estilos do componente host para preencher a tela */
+        html, body {
+            margin: 0;
+            height: 100%;
+            min-height: 100%;
+            width: 100%;
+            min-width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Para empurrar o footer para baixo */
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            transition: background-color 0.3s ease;
+        }
 
-      const data = await res.json();
-      console.log("Eventos recebidos:", data.value.map(e => ({
-        assunto: e.subject,
-        inicio: e.start.dateTime,
-        fim: e.end.dateTime
-      })));
+        /* Estilos para a sala ocupada */
+        .ocupada {
+            margin: 0;
+            height: 100vh;
+            min-height: 100vh;
+            width: 100%;
+            padding: 10%; /* Espaçamento interno em todas as direções */
+            min-width: 100%;
+            background-color: #D32F2F; /* Vermelho */
+            display: flex; /* Adicionado para centralizar conteúdo verticalmente */
+            flex-direction: column; /* Conteúdo em coluna */
+            justify-content: center; /* Centraliza verticalmente */
+            align-items: flex-start; /* Alinha o conteúdo à esquerda */
+        }
 
-      const nowTime = new Date();
-      const formatter = new Intl.DateTimeFormat('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+        /* Estilos para a sala livre */
+        .livre {
+            margin: 0;
+            height: 100vh;
+            min-height: 100vh;
+            width: 100%;
+            min-width: 100%;
+            padding: 10%; /* Espaçamento interno em todas as direções */
+            background-color: #388E3C; /* Verde */
+            display: flex; /* Adicionado para centralizar conteúdo verticalmente */
+            flex-direction: column; /* Conteúdo em coluna */
+            justify-content: center; /* Centraliza verticalmente */
+            align-items: flex-start; /* Alinha o conteúdo à esquerda */
+        }
 
-      const current = data.value.find(event => {
-        const start = new Date(event.start.dateTime);
-        const end = new Date(event.end.dateTime);
-        return nowTime >= start && nowTime < end;
-      });
+        /* Estilos do texto de status */
+        .status {
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 5em;
+        }
 
-      if (current) {
-        document.getElementById("status").textContent = "🔴 Ocupada";
-        document.getElementById("tela").className = "ocupada";
-        document.getElementById("titulo").textContent = current.subject || "Sem título";
-        document.getElementById("organizador").textContent = "Reservado por: " + current.organizer.emailAddress.name;
-        document.getElementById("termina").textContent = "Termina às " + formatter.format(new Date(current.end.dateTime));
-      } else {
-        document.getElementById("status").textContent = "🟢 Livre";
-        document.getElementById("tela").className = "livre";
-        document.getElementById("titulo").textContent = "Sem reunião no momento.";
-        document.getElementById("organizador").textContent = "";
-        document.getElementById("termina").textContent = "";
-      }
+        /* Estilos do nome da sala */
+        .sala {
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
 
-      document.getElementById("footer").textContent = "Atualizado às " + formatter.format(nowTime);
+        /* Estilos das informações gerais (título, horário, etc.) */
+        .info {
+            margin-top: 10px; /* Adiciona um pequeno espaço acima de cada item de informação */
+            font-size: 1.5em;
+        }
 
-      setTimeout(() => loadCalendar(token), 30000); // Atualiza a cada 30 segundos
-    }
+        /* Estilos do rodapé */
+        .footer {
+            opacity: 0.8;
+            font-size: 1.2em;
+            position: fixed; /* Fixa o footer na parte inferior */
+            bottom: 10%; /* Distância da parte inferior da tela */
+            left: 10%; /* Alinha com o padding lateral do conteúdo */
+            width: 80%; /* Ocupa a largura do conteúdo principal */
+            text-align: left; /* Garante que o texto do footer esteja alinhado à esquerda */
+        }
 
-    signInAndLoad();
-  </script>
+        /* --- Novos estilos para a imagem do organizador --- */
+        .organizer-info {
+            display: flex; /* Permite que a imagem e o texto fiquem na mesma linha */
+            align-items: center; /* Alinha verticalmente a imagem e o texto */
+            margin-top: 10px; /* Mantém o espaçamento com o item acima */
+            margin-bottom: 8px; /* Pequeno espaçamento abaixo */
+            font-size: 1.5em; /* Garante que o texto dentro siga o tamanho .info */
+        }
+
+        .organizer-photo {
+            border-radius: 50%; /* Transforma a imagem em um círculo */
+            width: 80px; /* Tamanho da imagem (ajuste conforme a necessidade) */
+            height: 80px; /* Mesma largura e altura para ser um círculo perfeito */
+            margin-right: 20px; /* Espaço entre a imagem e o texto do organizador */
+            object-fit: cover; /* Garante que a imagem cubra a área definida sem distorção */
+            border: 3px solid rgba(255, 255, 255, 0.5); /* Borda sutil e translúcida */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Sombra para dar profundidade */
+        }
+    </style>
+</head>
+<body>
+    <div id="app-root" [ngClass]="{'ocupada': isOccupied, 'livre': !isOccupied}">
+        <div class="sala">Sala Museu</div>
+        <div class="status" id="statusText">Carregando...</div>
+        <div class="info" id="titleText"></div>
+        <div class="organizer-info" id="organizerInfoDiv" style="display: none;">
+            <img id="organizerPhoto" alt="Foto do Organizador" class="organizer-photo">
+            <div class="info" id="organizerText"></div>
+        </div>
+        <div class="info" id="organizerTextFallback"></div>
+        <div class="info" id="endTimeText"></div>
+        <div class="footer" id="footerText"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.0/lib/msal-browser.min.js"></script>
+
+    <script>
+        // Transpilação manual/adaptação do código TypeScript para JavaScript
+        // Variáveis globais para serem acessíveis pelo script
+        let isOccupied = false;
+        let statusText = 'Carregando...';
+        let titleText = '';
+        let organizerText = '';
+        let endTimeText = '';
+        let footerText = '';
+        let organizerPhotoUrl = '';
+
+        let msalInstance;
+        let intervalId;
+
+        // Configurações do MSAL (substitua pelos seus valores reais)
+        const msalConfig = {
+            auth: {
+                clientId: "6939f217-6865-4a51-a5c2-1ba799665992",
+                authority: "https://login.microsoftonline.com/20dfd3ff-2298-473e-8035-8f97570c4361",
+                redirectUri: "https://yuraharaa.github.io/5/museu.html"
+            }
+        };
+
+        const loginRequest = {
+            scopes: ["Calendars.Read", "User.ReadBasic.All"]
+        };
+
+        const salaEmail = "museuoscarniemeyer@fcopel.mail.onmicrosoft.com";
+
+        // Função para atualizar o DOM
+        function updateUI() {
+            const appRoot = document.getElementById('app-root');
+            if (appRoot) {
+                appRoot.className = isOccupied ? 'ocupada' : 'livre';
+            }
+            document.getElementById('statusText').innerText = statusText;
+            document.getElementById('titleText').innerText = titleText;
+            document.getElementById('endTimeText').innerText = endTimeText;
+            document.getElementById('footerText').innerText = footerText;
+
+            const organizerInfoDiv = document.getElementById('organizerInfoDiv');
+            const organizerPhoto = document.getElementById('organizerPhoto');
+            const organizerTextElem = document.getElementById('organizerText');
+            const organizerTextFallback = document.getElementById('organizerTextFallback');
+
+            if (organizerPhotoUrl) {
+                organizerInfoDiv.style.display = 'flex'; // Mostra o div flex
+                organizerPhoto.src = organizerPhotoUrl;
+                organizerTextElem.innerText = organizerText;
+                organizerTextFallback.style.display = 'none'; // Esconde o fallback
+            } else {
+                organizerInfoDiv.style.display = 'none'; // Esconde o div flex
+                organizerTextFallback.style.display = 'block'; // Mostra o fallback
+                organizerTextFallback.innerText = organizerText;
+            }
+        }
+
+        async function getOrganizerPhoto(token, userEmail) {
+            try {
+                const url = `https://graph.microsoft.com/v1.0/users/${userEmail}/photo/$value`;
+                const res = await fetch(url, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+
+                if (res.ok) {
+                    const blob = await res.blob();
+                    organizerPhotoUrl = URL.createObjectURL(blob);
+                } else if (res.status === 404) {
+                    console.warn(`Foto de perfil não encontrada para ${userEmail}`);
+                    organizerPhotoUrl = '';
+                } else {
+                    const errorText = await res.text();
+                    console.error(`Erro ao buscar foto para ${userEmail}:`, errorText);
+                    organizerPhotoUrl = '';
+                }
+            } catch (error) {
+                console.error(`Erro ao buscar foto para ${userEmail}:`, error);
+                organizerPhotoUrl = '';
+            }
+        }
+
+        async function loadCalendar(token) {
+            const now = new Date();
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+            const startDateTime = now.toISOString();
+            const endDateTime = endOfDay.toISOString();
+
+            const url = `https://graph.microsoft.com/v1.0/users/${salaEmail}/calendarView?startDateTime=${startDateTime}&endDateTime=${endDateTime}&$orderby=start/dateTime`;
+
+            try {
+                const res = await fetch(url, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Prefer: 'outlook.timezone="America/Sao_Paulo"'
+                    }
+                });
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    console.error("Erro na requisição do Graph:", errorText);
+                    statusText = "Erro ao carregar";
+                    isOccupied = true;
+                    updateUI();
+                    return;
+                }
+
+                const data = await res.json();
+                console.log("Eventos recebidos:", data.value.map(e => ({
+                    assunto: e.subject,
+                    inicio: e.start.dateTime,
+                    fim: e.end.dateTime
+                })));
+
+                const nowTime = new Date();
+                const formatter = new Intl.DateTimeFormat('pt-BR', {
+                    timeZone: 'America/Sao_Paulo',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const current = data.value.find(event => {
+                    const start = new Date(event.start.dateTime);
+                    const end = new Date(event.end.dateTime);
+                    return nowTime >= start && nowTime < end;
+                });
+
+                if (current) {
+                    statusText = "🔴 Ocupada";
+                    isOccupied = true;
+                    titleText = current.subject || "Sem título";
+                    organizerText = "Reservado por: " + current.organizer.emailAddress.name;
+                    endTimeText = "Termina às " + formatter.format(new Date(current.end.dateTime));
+
+                    if (current.organizer && current.organizer.emailAddress && current.organizer.emailAddress.address) {
+                        await getOrganizerPhoto(token, current.organizer.emailAddress.address);
+                    } else {
+                        organizerPhotoUrl = '';
+                    }
+                } else {
+                    statusText = "🟢 Livre";
+                    isOccupied = false;
+                    titleText = "Sem reunião no momento.";
+                    organizerText = "";
+                    endTimeText = "";
+                    organizerPhotoUrl = '';
+                }
+                footerText = "Atualizado às " + formatter.format(nowTime);
+
+            } catch (error) {
+                console.error("Erro ao carregar eventos do calendário:", error);
+                statusText = "Erro ao carregar";
+                isOccupied = true;
+            } finally {
+                updateUI(); // Atualiza a UI após cada carregamento
+                intervalId = setTimeout(() => loadCalendar(token), 30000);
+            }
+        }
+
+        async function signInAndLoad() {
+            try {
+                let loginResponse;
+                const accounts = msalInstance.getAllAccounts();
+                if (accounts.length > 0) {
+                    msalInstance.setActiveAccount(accounts[0]);
+                    loginResponse = await msalInstance.acquireTokenSilent(loginRequest);
+                } else {
+                    loginResponse = await msalInstance.loginPopup(loginRequest);
+                    msalInstance.setActiveAccount(loginResponse.account);
+                }
+                const accessToken = (await msalInstance.acquireTokenSilent({
+                    ...loginRequest,
+                    account: loginResponse.account
+                })).accessToken;
+                loadCalendar(accessToken);
+            } catch (err) {
+                console.error("Erro durante login:", err);
+                statusText = "Erro de autenticação";
+                isOccupied = true;
+                updateUI();
+            }
+        }
+
+        // Função de inicialização
+        async function initializeApp() {
+            msalInstance = new msal.PublicClientApplication(msalConfig);
+            await msalInstance.initialize(); // MSAL V2 requer a inicialização explícita
+            signInAndLoad();
+        }
+
+        // Garante que o aplicativo seja inicializado após o carregamento completo do DOM
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        // Limpa o intervalo ao fechar a página (opcional, mas boa prática para SPA)
+        window.onbeforeunload = () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    </script>
 </body>
 </html>
