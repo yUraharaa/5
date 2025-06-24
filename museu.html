@@ -35,6 +35,9 @@
         #agendaList li {
             padding: 8px 10px; margin-bottom: 6px; background: rgba(255,255,255,0.1); border-radius: 6px;
         }
+        #salasDisponiveis {
+            margin-top: 20px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.3);
+        }
     </style>
 </head>
 <body>
@@ -54,6 +57,7 @@
     <div id="agendaContainer" style="position:fixed; right:0; top:10%; width:300px; background:rgba(0,0,0,0.5); padding:10px; height:80vh; overflow:auto;">
         <h3>Agenda de Hoje</h3>
         <ul id="agendaList" style="list-style:none; padding:0;"></ul>
+        <div id="salasDisponiveis"></div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.0/lib/msal-browser.min.js"></script>
     <script>
@@ -62,6 +66,15 @@
         let calendarEvents = [];
         let organizerPhotoUrl = '';
         let accessToken = '';
+
+        const salasExtras = [
+            "barigui@fcopel.mail.onmicrosoft.com",
+            "jardimbotanico@fcopel.onmicrosoft.com",
+            "panoramica@fcopel.onmicrosoft.com",
+            "passeiopublico@fcopel.onmicrosoft.com",
+            "operadearame@fcopel.mail.onmicrosoft.com",
+            "museuoscarniemeyer@fcopel.mail.onmicrosoft.com"
+        ];
 
         const msalConfig = {
             auth: {
@@ -94,6 +107,7 @@
             document.getElementById('endNowBtn').style.display = currentEvent ? 'block' : 'none';
             document.getElementById('footerText').innerText = 'Atualizado às ' + formatHour(new Date());
             renderAgenda();
+            if (isOccupied) checkSalasDisponiveis();
         }
 
         function renderAgenda() {
@@ -115,6 +129,32 @@
                 container.appendChild(li2);
                 lastEnd = end;
             });
+        }
+
+        async function checkSalasDisponiveis() {
+            const container = document.getElementById('salasDisponiveis');
+            container.innerHTML = '<h4>Salas disponíveis no momento</h4>';
+            const now = new Date().toISOString();
+
+            for (const sala of salasExtras) {
+                const url = `https://graph.microsoft.com/v1.0/users/${sala}/calendarView?startDateTime=${now}&endDateTime=${new Date(new Date().getTime() + 30*60000).toISOString()}&$orderby=start/dateTime`;
+                try {
+                    const res = await fetch(url, {
+                        headers: {
+                            Authorization: `Bearer ${accessToken}`,
+                            Prefer: 'outlook.timezone="America/Sao_Paulo"'
+                        }
+                    });
+                    const data = await res.json();
+                    if (!data.value || data.value.length === 0) {
+                        const p = document.createElement('p');
+                        p.innerText = sala.split('@')[0];
+                        container.appendChild(p);
+                    }
+                } catch (e) {
+                    console.error('Erro ao verificar sala', sala, e);
+                }
+            }
         }
 
         async function getOrganizerPhoto(token, email) {
