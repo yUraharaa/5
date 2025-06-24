@@ -32,7 +32,7 @@
             border-radius: 50%; width: 80px; height: 80px; margin-right: 20px; object-fit: cover;
             border: 3px solid rgba(255, 255, 255, 0.5); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
-        #agendaList li {
+        #agendaList li, #salasDisponiveis li {
             padding: 8px 10px; margin-bottom: 6px; background: rgba(255,255,255,0.1); border-radius: 6px;
         }
         #salasDisponiveis {
@@ -57,7 +57,8 @@
     <div id="agendaContainer" style="position:fixed; right:0; top:10%; width:300px; background:rgba(0,0,0,0.5); padding:10px; height:80vh; overflow:auto;">
         <h3>Agenda de Hoje</h3>
         <ul id="agendaList" style="list-style:none; padding:0;"></ul>
-        <div id="salasDisponiveis"></div>
+        <h3 id="salasTitulo" style="margin-top: 20px;">Salas disponíveis agora</h3>
+        <ul id="salasDisponiveis" style="list-style:none; padding:0;"></ul>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.0/lib/msal-browser.min.js"></script>
     <script>
@@ -68,12 +69,12 @@
         let accessToken = '';
 
         const salasExtras = [
-            "barigui@fcopel.mail.onmicrosoft.com",
-            "jardimbotanico@fcopel.onmicrosoft.com",
-            "panoramica@fcopel.onmicrosoft.com",
-            "passeiopublico@fcopel.onmicrosoft.com",
-            "operadearame@fcopel.mail.onmicrosoft.com",
-            "museuoscarniemeyer@fcopel.mail.onmicrosoft.com"
+            { email: "barigui@fcopel.mail.onmicrosoft.com", nome: "Sala Barigui - 5º andar" },
+            { email: "jardimbotanico@fcopel.onmicrosoft.com", nome: "Sala Jardim Botânico - 6º andar" },
+            { email: "panoramica@fcopel.onmicrosoft.com", nome: "Sala Panorâmica - 6º andar" },
+            { email: "passeiopublico@fcopel.onmicrosoft.com", nome: "Sala Passeio Público - 6º Andar" },
+            { email: "operadearame@fcopel.mail.onmicrosoft.com", nome: "Sala Ópera de Arame - 5º andar" },
+            { email: "museuoscarniemeyer@fcopel.mail.onmicrosoft.com", nome: "Sala Museu" }
         ];
 
         const msalConfig = {
@@ -133,11 +134,10 @@
 
         async function checkSalasDisponiveis() {
             const container = document.getElementById('salasDisponiveis');
-            container.innerHTML = '<h4>Salas disponíveis no momento</h4>';
+            container.innerHTML = '';
             const now = new Date().toISOString();
-
             for (const sala of salasExtras) {
-                const url = `https://graph.microsoft.com/v1.0/users/${sala}/calendarView?startDateTime=${now}&endDateTime=${new Date(new Date().getTime() + 30*60000).toISOString()}&$orderby=start/dateTime`;
+                const url = `https://graph.microsoft.com/v1.0/users/${sala.email}/calendarView?startDateTime=${now}&endDateTime=${new Date(new Date().getTime() + 30*60000).toISOString()}&$orderby=start/dateTime`;
                 try {
                     const res = await fetch(url, {
                         headers: {
@@ -147,12 +147,12 @@
                     });
                     const data = await res.json();
                     if (!data.value || data.value.length === 0) {
-                        const p = document.createElement('p');
-                        p.innerText = sala.split('@')[0];
-                        container.appendChild(p);
+                        const li = document.createElement('li');
+                        li.innerText = sala.nome;
+                        container.appendChild(li);
                     }
                 } catch (e) {
-                    console.error('Erro ao verificar sala', sala, e);
+                    console.error('Erro ao verificar sala', sala.email, e);
                 }
             }
         }
