@@ -109,7 +109,7 @@
             document.getElementById('endNowBtn').style.display = currentEvent ? 'block' : 'none';
             document.getElementById('footerText').innerText = 'Atualizado às ' + formatHour(new Date());
             renderAgenda();
-            if (isOccupied) checkSalasDisponiveis();
+            checkSalasDisponiveis();
         }
 
         function renderAgenda() {
