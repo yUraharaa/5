@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sala Museu Oscar Niemeyer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      color: white;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px;
+      transition: background-color 0.3s ease;
+    }
+
+    .status {
+      font-size: 5em;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .sala {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    .info {
+      font-size: 1.5em;
+      margin-top: 10px;
+    }
+
+    .footer {
+      font-size: 1.2em;
+      opacity: 0.8;
+    }
+
+    .ocupada {
+      background-color: #D32F2F; /* vermelho */
+    }
+
+    .livre {
+      background-color: #388E3C; /* verde */
+    }
+  </style>
+  <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
+</head>
+<body id="tela" class="livre">
+  <div>
+    <div class="sala">Sala Museu Oscar Niemeyer</div>
+    <div class="status" id="status">Carregando...</div>
+    <div class="info" id="titulo"></div>
+    <div class="info" id="organizador"></div>
+    <div class="info" id="termina"></div>
+  </div>
+  <div class="footer" id="footer"></div>
+
+  <script>
+    const msalConfig = {
+      auth: {
+        clientId: "6939f217-6865-4a51-a5c2-1ba799665992", // Substitua pelo seu clientId
+        authority: "https://login.microsoftonline.com/20dfd3ff-2298-473e-8035-8f97570c4361", // Substitua pelo seu tenantId
+        redirectUri: "https://yuraharaa.github.io/painel-sala-reuni-o/painel.html"
+      }
+    };
+
+    const loginRequest = {
+      scopes: ["Calendars.Read"]
+    };
+
+    const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+    msalInstance.setLogger(new msal.Logger((logLevel, message) => {
+      console.log(`[MSAL ${logLevel}]: ${message}`);
+    }, {
+      level: msal.LogLevel.Verbose,
+      piiLoggingEnabled: false
+    }));
+
+    async function signInAndLoad() {
+      try {
+        const loginResponse = await msalInstance.loginPopup(loginRequest);
+        msalInstance.setActiveAccount(loginResponse.account);
+
+        const accessToken = (
+          await msalInstance.acquireTokenSilent({
+            ...loginRequest,
+            account: loginResponse.account
+          })
+        ).accessToken;
+
+        loadCalendar(accessToken);
+      } catch (err) {
+        console.error("Erro durante login:", err);
+        document.getElementById("status").textContent = "Erro de autenticação";
+      }
+    }
+
+    async function loadCalendar(token) {
+      const salaEmail = "museuoscarniemeyer@fcopel.mail.onmicrosoft.com"; // Substitua pelo e-mail real da sala
+      const now = new Date();
+
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const startDateTime = now.toISOString();
+      const endDateTime = endOfDay.toISOString();
+
+      const url = `https://graph.microsoft.com/v1.0/users/${salaEmail}/calendarView?startDateTime=${startDateTime}&endDateTime=${endDateTime}&$orderby=start/dateTime`;
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Prefer: 'outlook.timezone="America/Sao_Paulo"'
+        }
+      });
+
+      if (!res.ok) {
+        console.error("Erro na requisição do Graph:", await res.text());
+        document.getElementById("status").textContent = "Erro ao carregar";
+        document.getElementById("tela").className = "ocupada";
+        return;
+      }
+
+      const data = await res.json();
+      console.log("Eventos recebidos:", data.value.map(e => ({
+        assunto: e.subject,
+        inicio: e.start.dateTime,
+        fim: e.end.dateTime
+      })));
+
+      const nowTime = new Date();
+      const formatter = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const current = data.value.find(event => {
+        const start = new Date(event.start.dateTime);
+        const end = new Date(event.end.dateTime);
+        return nowTime >= start && nowTime < end;
+      });
+
+      if (current) {
+        document.getElementById("status").textContent = "🔴 Ocupada";
+        document.getElementById("tela").className = "ocupada";
+        document.getElementById("titulo").textContent = current.subject || "Sem título";
+        document.getElementById("organizador").textContent = "Reservado por: " + current.organizer.emailAddress.name;
+        document.getElementById("termina").textContent = "Termina às " + formatter.format(new Date(current.end.dateTime));
+      } else {
+        document.getElementById("status").textContent = "🟢 Livre";
+        document.getElementById("tela").className = "livre";
+        document.getElementById("titulo").textContent = "Sem reunião no momento.";
+        document.getElementById("organizador").textContent = "";
+        document.getElementById("termina").textContent = "";
+      }
+
+      document.getElementById("footer").textContent = "Atualizado às " + formatter.format(nowTime);
+
+      setTimeout(() => loadCalendar(token), 60000); // Atualiza a cada 60 segundos
+    }
+
+    signInAndLoad();
+  </script>
+</body>
+</html>
