@@ -32,6 +32,9 @@
             border-radius: 50%; width: 80px; height: 80px; margin-right: 20px; object-fit: cover;
             border: 3px solid rgba(255, 255, 255, 0.5); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
+        #agendaList li {
+            padding: 8px 10px; margin-bottom: 6px; background: rgba(255,255,255,0.1); border-radius: 6px;
+        }
     </style>
 </head>
 <body>
@@ -97,7 +100,7 @@
             const container = document.getElementById('agendaList');
             container.innerHTML = '';
             const now = new Date();
-            let lastEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+            let lastEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0);
             calendarEvents.forEach(ev => {
                 const start = new Date(ev.start.dateTime);
                 const end = new Date(ev.end.dateTime);
@@ -108,8 +111,7 @@
                     container.appendChild(li);
                 }
                 const li2 = document.createElement('li');
-                li2.style.fontWeight = 'bold';
-                li2.innerText = `${formatHour(start)} – ${formatHour(end)} → ${ev.organizer.emailAddress.name}`;
+                li2.innerHTML = `<strong>${formatHour(start)} – ${formatHour(end)}</strong><br> ${ev.organizer.emailAddress.name}`;
                 container.appendChild(li2);
                 lastEnd = end;
             });
@@ -144,6 +146,7 @@
             isOccupied = !!currentEvent;
             if (currentEvent) await getOrganizerPhoto(token, currentEvent.organizer.emailAddress.address);
             updateUI();
+            setTimeout(() => loadCalendar(token), 30000);
         }
 
         document.getElementById('endNowBtn').onclick = async () => {
@@ -158,8 +161,14 @@
                 },
                 body: JSON.stringify({ end: { dateTime: nowIso, timeZone: 'America/Sao_Paulo' } })
             });
-            if (res.ok) loadCalendar(accessToken);
-            else alert('Erro ao encerrar a reunião.');
+            if (res.ok) {
+                currentEvent = null;
+                isOccupied = false;
+                await loadCalendar(accessToken);
+            } else {
+                console.error('Erro ao encerrar reunião:', await res.text());
+                alert('Erro ao encerrar reunião.');
+            }
         };
 
         async function signInAndLoad() {
